@@ -6,16 +6,18 @@ state.py  –  全局运行状态
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional  # 导入 Optional
 
 
 @dataclass
 class State:
     # ── 调度执行记录 ─────────────────────────────────────────
-    last_morning_report: datetime | None = None
-    last_evening_report: datetime | None = None
-    last_market_scan:    datetime | None = None
+    # 将 | None 替换为 Optional[...]
+    last_morning_report: Optional[datetime] = None
+    last_evening_report: Optional[datetime] = None
+    last_market_scan:    Optional[datetime] = None
 
+    # ... 其余代码保持不变
     # ── 计数 ─────────────────────────────────────────────────
     morning_report_count: int = 0
     evening_report_count: int = 0

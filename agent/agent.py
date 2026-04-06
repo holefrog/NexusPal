@@ -85,7 +85,7 @@ _skill_scan    = MarketScanSkill()
 intents = discord.Intents.default()
 intents.message_content = True
 bot       = commands.Bot(command_prefix="!", intents=intents)
-tree      = app_commands.CommandTree(bot)
+# bot.tree      = app_commands.Commandbot.tree(bot)
 GUILD_OBJ = discord.Object(id=GUILD_ID)
 scheduler = AsyncIOScheduler(timezone="UTC")
 
@@ -195,8 +195,8 @@ async def on_ready():
 
     # 注册 slash commands（guild 级，秒生效）
     try:
-        tree.copy_global_to(guild=GUILD_OBJ)
-        synced = await tree.sync(guild=GUILD_OBJ)
+        bot.tree.copy_global_to(guild=GUILD_OBJ)
+        synced = await bot.tree.sync(guild=GUILD_OBJ)
         log.info("Slash commands 已同步: %d 条", len(synced))
     except Exception as e:
         log.error("Slash commands 同步失败: %s", e)
@@ -260,7 +260,7 @@ async def on_ready():
 # Slash Commands
 # ═══════════════════════════════════════════════════════════════
 
-@tree.command(name="ping", description="检查 bot 延迟")
+@bot.tree.command(name="ping", description="检查 bot 延迟")
 async def slash_ping(interaction: discord.Interaction):
     await interaction.response.send_message(
         f"🏓 Pong!  延迟 **{round(bot.latency * 1000)} ms**",
@@ -269,7 +269,7 @@ async def slash_ping(interaction: discord.Interaction):
     log.info("/ping 来自 %s", interaction.user)
 
 
-@tree.command(name="status", description="查看服务器资源与调度状态")
+@bot.tree.command(name="status", description="查看服务器资源与调度状态")
 async def slash_status(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     embed = await asyncio.get_event_loop().run_in_executor(None, _build_status_embed)
@@ -295,11 +295,11 @@ async def slash_report_evening(interaction: discord.Interaction):
     log.info("/report evening 来自 %s", interaction.user)
 
 
-tree.add_command(report_group)
+bot.tree.add_command(report_group)
 
 
 # ── /scan ─────────────────────────────────────────────────────
-@tree.command(name="scan", description="立即执行一次市场扫描")
+@bot.tree.command(name="scan", description="立即执行一次市场扫描")
 async def slash_scan(interaction: discord.Interaction):
     await interaction.response.send_message("🔍 正在扫描...", ephemeral=True)
     await run_market_scan()
@@ -350,7 +350,7 @@ class RebootView(discord.ui.View):
                 pass
 
 
-@tree.command(name="reboot", description="重启 agent 进程（需确认，默认取消）")
+@bot.tree.command(name="reboot", description="重启 agent 进程（需确认，默认取消）")
 async def slash_reboot(interaction: discord.Interaction):
     view = RebootView(requester=interaction.user)
     await interaction.response.send_message(
@@ -367,7 +367,7 @@ async def slash_reboot(interaction: discord.Interaction):
 # ═══════════════════════════════════════════════════════════════
 # 错误处理
 # ═══════════════════════════════════════════════════════════════
-@tree.error
+@bot.tree.error
 async def on_app_command_error(
     interaction: discord.Interaction,
     error: app_commands.AppCommandError,
