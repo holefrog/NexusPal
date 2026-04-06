@@ -1,0 +1,37 @@
+# Environments
+.env
+.env.*
+!.env.example
+
+# Configures
+config.ini
+config.*
+!config.ini.example
+
+
+# Authentication & Tokens
+
+
+
+# scripts
+local*.sh
+
+# Python
+venv
+pip-log.txt
+pip-delete-this-directory.txt
+.toast
+.pytest_cache/
+__pycache__
+
+
+# Node / Web
+node_modules/
+dist/
+build/
+.DS_Store
+
+# App specific
+reports/
+public/reports/
+*.log

@@ -1,0 +1,116 @@
+---
+# common role：环境检查 + swap + python3.9
+# 幂等，所有主机通用
+
+# ── VPS 配置检查 ──────────────────────────────────────────────
+- name: "[检查] 收集系统信息"
+  tags: [check, always]
+  block:
+    - name: 读取 CPU 信息
+      command: nproc
+      register: cpu_cores
+      changed_when: false
+
+    - name: 读取内存信息
+      command: free -m
+      register: mem_info
+      changed_when: false
+
+    - name: 读取磁盘信息
+      command: df -h /
+      register: disk_info
+      changed_when: false
+
+    - name: 读取系统负载
+      command: cat /proc/loadavg
+      register: load_info
+      changed_when: false
+
+    - name: "VPS 配置概览"
+      debug:
+        msg:
+          - "──────────────────────────────────"
+          - "主机     : {{ ansible_hostname }}"
+          - "OS       : {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "内核     : {{ ansible_kernel }}"
+          - "CPU 核数 : {{ cpu_cores.stdout }} 核"
+          - "内存     : {{ ansible_memtotal_mb }} MB 总量 / {{ ansible_memfree_mb }} MB 空闲"
+          - "Swap     : {{ ansible_swaptotal_mb }} MB 总量 / {{ ansible_swapfree_mb }} MB 空闲"
+          - "负载     : {{ load_info.stdout.split()[:3] | join(' / ') }}  (1m/5m/15m)"
+          - "磁盘 /   : {{ disk_info.stdout_lines[1] }}"
+          - "──────────────────────────────────"
+
+    - name: "⚠ 内存警告"
+      debug:
+        msg: "内存 {{ ansible_memtotal_mb }}MB，建议启用 Swap（pip 安装期间易 OOM）"
+      when: ansible_memtotal_mb | int < 1024
+
+    - name: "✓ 内存充足"
+      debug:
+        msg: "内存 {{ ansible_memtotal_mb }}MB，充足"
+      when: ansible_memtotal_mb | int >= 1024
+
+# ── Swap（低配防 OOM，幂等）──────────────────────────────────
+- name: "[Swap] 检查是否需要创建"
+  tags: [setup]
+  block:
+    - name: 检查 swapfile 是否存在
+      stat:
+        path: /swapfile
+      register: swapfile_stat
+
+    - name: 创建 1GB swapfile
+      command: dd if=/dev/zero of=/swapfile bs=1M count=1024
+      when:
+        - ansible_swaptotal_mb | int < 512
+        - not swapfile_stat.stat.exists
+
+    - name: 设置 swapfile 权限
+      file:
+        path: /swapfile
+        mode: '0600'
+      when:
+        - ansible_swaptotal_mb | int < 512
+        - not swapfile_stat.stat.exists
+
+    - name: 格式化 swapfile
+      command: mkswap /swapfile
+      when:
+        - ansible_swaptotal_mb | int < 512
+        - not swapfile_stat.stat.exists
+
+    - name: 启用 swapfile
+      command: swapon /swapfile
+      when:
+        - ansible_swaptotal_mb | int < 512
+        - not swapfile_stat.stat.exists
+
+    - name: 持久化 swap（写入 fstab）
+      mount:
+        name: none
+        src: /swapfile
+        fstype: swap
+        opts: sw
+        state: present
+      when: ansible_swaptotal_mb | int < 512
+
+# ── Python 3.9 ───────────────────────────────────────────────
+- name: "[Python] 安装 python39"
+  tags: [setup]
+  dnf:
+    name:
+      - python39
+      - python39-pip
+      - gcc-c++
+    state: present
+
+- name: "[Python] 确认版本"
+  tags: [setup, check]
+  command: /usr/bin/python3.9 --version
+  register: py_ver
+  changed_when: false
+
+- name: "Python 版本"
+  tags: [setup, check]
+  debug:
+    msg: "{{ py_ver.stdout }}"

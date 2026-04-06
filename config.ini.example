@@ -1,0 +1,34 @@
+# 复制为 config.ini 并填写，config.ini 不入 git
+# secrets（token / api key）单独存放在 deploy/secrets.yml（Ansible Vault 加密）
+
+# ── SSH / 目标主机 ────────────────────────────────────────────
+[ssh]
+host             = 1.2.3.4
+port             = 22
+user             = root
+key              = ~/.ssh/id_rsa
+
+# ── 远端部署路径 ──────────────────────────────────────────────
+[remote]
+app_dir          = /opt/invest_agent
+service          = invest-agent
+
+# ── Discord（非 secret 部分）─────────────────────────────────
+[discord]
+report_channel_id = YOUR_REPORT_CHANNEL_ID
+guild_id          = YOUR_GUILD_ID
+admin_channel_id  =                          # 选填，留空则忽略
+
+# ── LLM ───────────────────────────────────────────────────────
+[llm]
+gemini_model     = gemini-1.5-pro
+
+# ── 调度（cron 为 UTC 时间）──────────────────────────────────
+[schedule]
+morning_report_cron          = 0 0 * * *     # UTC 00:00 = 北京 08:00
+evening_report_cron          = 0 12 * * *    # UTC 12:00 = 北京 20:00
+market_scan_interval_minutes = 15
+
+# ── Web ───────────────────────────────────────────────────────
+[web]
+root_path        = /var/www/invest

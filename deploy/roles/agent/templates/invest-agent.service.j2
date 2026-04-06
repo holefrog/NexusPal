@@ -1,0 +1,19 @@
+[Unit]
+Description=Invest Research Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory={{ app_dir }}
+ExecStart={{ app_dir }}/venv/bin/python3 agent.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ service_name }}
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

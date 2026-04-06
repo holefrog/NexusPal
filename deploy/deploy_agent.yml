@@ -1,0 +1,39 @@
+---
+# 用法:
+#   ansible-playbook deploy/deploy_agent.yml --ask-vault-pass
+#
+# 仅部署代码（跳过环境初始化）:
+#   ansible-playbook deploy/deploy_agent.yml --ask-vault-pass --tags deploy
+#
+# 仅查看 VPS 配置:
+#   ansible-playbook deploy/deploy_agent.yml --ask-vault-pass --tags check
+
+- name: 部署投研 Agent 到 AlmaLinux 8
+  hosts: vps
+  vars_files:
+    - secrets.yml          # Ansible Vault 加密文件
+
+  vars:
+    app_dir:          /opt/invest_agent
+    service_name:     invest-agent
+    python_bin:       /usr/bin/python3.9
+
+    # Discord（非 secret）
+    report_channel_id: "{{ lookup('ini', 'report_channel_id section=discord file=../config.ini') }}"
+    guild_id:          "{{ lookup('ini', 'guild_id          section=discord file=../config.ini') }}"
+    admin_channel_id:  "{{ lookup('ini', 'admin_channel_id  section=discord file=../config.ini') }}"
+
+    # LLM
+    gemini_model:      "{{ lookup('ini', 'gemini_model section=llm file=../config.ini') }}"
+
+    # 调度
+    morning_report_cron:          "{{ lookup('ini', 'morning_report_cron          section=schedule file=../config.ini') }}"
+    evening_report_cron:          "{{ lookup('ini', 'evening_report_cron          section=schedule file=../config.ini') }}"
+    market_scan_interval_minutes: "{{ lookup('ini', 'market_scan_interval_minutes section=schedule file=../config.ini') }}"
+
+    # Web
+    web_root_path: "{{ lookup('ini', 'root_path section=web file=../config.ini') }}"
+
+  roles:
+    - common
+    - agent

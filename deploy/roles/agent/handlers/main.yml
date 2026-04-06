@@ -1,0 +1,10 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: restart agent
+  systemd:
+    name: "{{ service_name }}"
+    state: restarted
+  listen: restart agent
