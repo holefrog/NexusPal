@@ -6,6 +6,8 @@ agent.py  –  投研 Agent 主进程
   3. 维护全局 State，传给每次 skill 调用
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
@@ -85,7 +87,6 @@ _skill_scan    = MarketScanSkill()
 intents = discord.Intents.default()
 intents.message_content = True
 bot       = commands.Bot(command_prefix="!", intents=intents)
-# bot.tree      = app_commands.Commandbot.tree(bot)
 GUILD_OBJ = discord.Object(id=GUILD_ID)
 scheduler = AsyncIOScheduler(timezone="UTC")
 
