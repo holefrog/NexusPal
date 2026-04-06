@@ -13,6 +13,7 @@
     - "{{ app_dir }}/skills"
     - "{{ web_root_path }}"
 
+
 # ── 上传代码 ──────────────────────────────────────────────────
 - name: "[代码] 上传 requirements.txt"
   tags: [setup, deploy]
@@ -22,41 +23,27 @@
     mode: '0644'
   notify: restart agent
 
-- name: "[代码] 上传 agent.py"
+- name: "[代码] 批量上传业务脚本"
   tags: [deploy]
   copy:
-    src: ../../../agent/agent.py
-    dest: "{{ app_dir }}/agent.py"
-    mode: '0644'
-  notify: restart agent
-
-- name: "[代码] 上传 state.py"
-  tags: [deploy]
-  copy:
-    src: ../../../agent/state.py
-    dest: "{{ app_dir }}/state.py"
-    mode: '0644'
-  notify: restart agent
-
-- name: "[代码] 上传 skills/__init__.py"
-  tags: [deploy]
-  copy:
-    src: ../../../agent/skills/__init__.py
-    dest: "{{ app_dir }}/skills/__init__.py"
-    mode: '0644'
-  notify: restart agent
-
-- name: "[代码] 上传 skill 模块"
-  tags: [deploy]
-  copy:
-    src: "../../../agent/skills/{{ item }}"
-    dest: "{{ app_dir }}/skills/{{ item }}"
+    src: "../../../agent/{{ item }}"
+    dest: "{{ app_dir }}/{{ item }}"
     mode: '0644'
   loop:
-    - report_morning.py
-    - report_evening.py
-    - market_scan.py
+    - agent.py
+    - state.py
   notify: restart agent
+  
+
+- name: "[代码] 同步所有 Skills 脚本"
+  tags: [deploy]
+  copy:
+    src: "../../../agent/skills/"  # 注意：末尾带斜杠表示同步目录下的“内容”
+    dest: "{{ app_dir }}/skills/"
+    mode: '0644'
+  notify: restart agent
+  
+  
 
 # ── venv + 依赖 ───────────────────────────────────────────────
 - name: "[venv] 检查是否存在"

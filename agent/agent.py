@@ -65,10 +65,14 @@ GUILD_ID          = int(_require("GUILD_ID"))
 _admin_raw        = _optional("ADMIN_CHANNEL_ID")
 ADMIN_CHANNEL_ID  = int(_admin_raw) if _admin_raw else None
 
-MORNING_CRON      = _optional("MORNING_REPORT_CRON",          "0 0 * * *")
-EVENING_CRON      = _optional("EVENING_REPORT_CRON",          "0 12 * * *")
+MORNING_CRON      = _optional("MORNING_REPORT_CRON",          "0 8 * * *")
+EVENING_CRON      = _optional("EVENING_REPORT_CRON",          "0 16 * * *")
 SCAN_INTERVAL_MIN = int(_optional("MARKET_SCAN_INTERVAL_MINUTES", "15"))
 
+# 👉 修改点 1：读取时区配置，默认为 UTC
+CRON_TZ           = _optional("CRON_TZ",                      "UTC")
+
+# 注意：启动时间用于计算运行时长，必须保持绝对时间（UTC），无需修改
 _START_TIME = datetime.now(timezone.utc)
 
 # ═══════════════════════════════════════════════════════════════
@@ -88,7 +92,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot       = commands.Bot(command_prefix="!", intents=intents)
 GUILD_OBJ = discord.Object(id=GUILD_ID)
-scheduler = AsyncIOScheduler(timezone="UTC")
+
+# 👉 修改点 2：将时区传入调度器基准配置中
+scheduler = AsyncIOScheduler(timezone=CRON_TZ)
 
 # ═══════════════════════════════════════════════════════════════
 # 工具函数
@@ -133,6 +139,7 @@ def _build_status_embed() -> discord.Embed:
     worst = max(s["cpu_pct"], s["mem_pct"], s["disk_pct"])
     color = 0xED4245 if worst >= 85 else (0xFEE75C if worst >= 60 else 0x57F287)
 
+    # Embed 的 timestamp 规范要求是 UTC，Discord 客户端会自动将其转换为用户的本地时间
     embed = discord.Embed(
         title="🖥️  投研节点状态",
         color=color,
@@ -142,25 +149,26 @@ def _build_status_embed() -> discord.Embed:
     embed.add_field(name="运行时长", value=f"`{_uptime_str()}`",                     inline=True)
     embed.add_field(name="延迟",     value=f"`{round(bot.latency * 1000)} ms`",      inline=True)
     embed.add_field(name=f"CPU ({s['cpu_cores']} 核)",
-                    value=f"`{_bar(s['cpu_pct'])}`",                                  inline=False)
+                    value=f"`{_bar(s['cpu_pct'])}`",                                 inline=False)
     embed.add_field(name=f"内存  {s['mem_used']} / {s['mem_total']} MB",
-                    value=f"`{_bar(s['mem_pct'])}`",                                  inline=False)
+                    value=f"`{_bar(s['mem_pct'])}`",                                 inline=False)
     if s["swap_total"] > 0:
         embed.add_field(name=f"Swap  {s['swap_used']} / {s['swap_total']} MB",
-                        value=f"`{_bar(s['swap_pct'])}`",                             inline=False)
+                        value=f"`{_bar(s['swap_pct'])}`",                            inline=False)
     else:
-        embed.add_field(name="Swap", value="`未启用`",                                inline=False)
+        embed.add_field(name="Swap", value="`未启用`",                               inline=False)
     embed.add_field(name=f"磁盘 /  {s['disk_used']} / {s['disk_total']} GB",
-                    value=f"`{_bar(s['disk_pct'])}`",                                 inline=False)
+                    value=f"`{_bar(s['disk_pct'])}`",                                inline=False)
 
     # 调度状态
     jobs_info = []
     for job in scheduler.get_jobs():
         next_run = job.next_run_time
-        next_str = next_run.strftime("%m-%d %H:%M UTC") if next_run else "未知"
+        # 这里会将时间格式化输出，并附带时区名称（如 EST/EDT），方便核对
+        next_str = next_run.strftime("%m-%d %H:%M %Z") if next_run else "未知"
         jobs_info.append(f"{job.name}: `{next_str}`")
     if jobs_info:
-        embed.add_field(name="下次调度", value="\n".join(jobs_info), inline=False)
+        embed.add_field(name=f"下次调度 ({CRON_TZ})", value="\n".join(jobs_info), inline=False)
 
     embed.set_footer(text=f"Python {sys.version.split()[0]} · discord.py {discord.__version__}")
     return embed
@@ -215,14 +223,16 @@ async def on_ready():
 
         scheduler.add_job(
             run_morning_report,
-            CronTrigger(**morning_cron, timezone="UTC"),
+            # 👉 修改点 3：移除 timezone="UTC"，让它使用 scheduler 的全局时区
+            CronTrigger(**morning_cron),
             name="早报",
             id="morning_report",
             replace_existing=True,
         )
         scheduler.add_job(
             run_evening_report,
-            CronTrigger(**evening_cron, timezone="UTC"),
+            # 👉 修改点 3
+            CronTrigger(**evening_cron),
             name="晚报",
             id="evening_report",
             replace_existing=True,
@@ -235,9 +245,11 @@ async def on_ready():
             replace_existing=True,
         )
         scheduler.start()
+        
+        # 👉 修改点 4：日志打印当前生效的时区
         log.info(
-            "调度器已启动 — 早报: %s  晚报: %s  扫描: 每 %d 分钟",
-            MORNING_CRON, EVENING_CRON, SCAN_INTERVAL_MIN,
+            "调度器已启动 [时区: %s] — 早报: %s  晚报: %s  扫描: 每 %d 分钟",
+            CRON_TZ, MORNING_CRON, EVENING_CRON, SCAN_INTERVAL_MIN,
         )
 
     # 上线通知
@@ -245,7 +257,7 @@ async def on_ready():
     if report_ch:
         await report_ch.send(
             "✅ **投研节点已就绪**\n"
-            f"> 主机 `{platform.node()}` · Python {sys.version.split()[0]}\n"
+            f"> 主机 `{platform.node()}` · Python {sys.version.split()[0]} · 时区 `{CRON_TZ}`\n"
             "> 输入 `/` 可查看可用指令"
         )
     else:
@@ -335,7 +347,7 @@ class RebootView(discord.ui.View):
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self._disable_all()
         await interaction.response.edit_message(
-            content="🔄 **正在重启...**  systemd 将在数秒内拉起服务", view=self
+            content="🔄 **正在重启...** systemd 将在数秒内拉起服务", view=self
         )
         self.stop()
         log.warning("/reboot 已确认，来自 %s", interaction.user)

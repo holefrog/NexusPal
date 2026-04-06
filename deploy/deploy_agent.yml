@@ -27,6 +27,7 @@
     gemini_model:      "{{ lookup('ini', 'gemini_model section=llm file=../config.ini') }}"
 
     # 调度
+    cron_tz:              		  "{{ lookup('ini', 'CRON_TZ section=schedule file=../config.ini') }}"
     morning_report_cron:          "{{ lookup('ini', 'morning_report_cron          section=schedule file=../config.ini') }}"
     evening_report_cron:          "{{ lookup('ini', 'evening_report_cron          section=schedule file=../config.ini') }}"
     market_scan_interval_minutes: "{{ lookup('ini', 'market_scan_interval_minutes section=schedule file=../config.ini') }}"
